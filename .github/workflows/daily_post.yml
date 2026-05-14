@@ -1,0 +1,35 @@
+name: HALHAFARM Daily Facebook Post
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 9:00 Morocco time (UTC+1) = 08:00 UTC
+  workflow_dispatch:        # Allow manual trigger
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Post video to Facebook
+        env:
+          FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
+          FB_PAGE_ID: "114437705015500"
+        run: python post.py
+
+      - name: Save state
+        run: |
+          git config user.name "HALHAFARM Bot"
+          git config user.email "bot@halhafarm.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "state: next video"
+          git push
