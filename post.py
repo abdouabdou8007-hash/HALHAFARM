@@ -1,16 +1,13 @@
-"""
-HALHAFARM - GitHub Actions Daily Facebook Publisher
-Publishes the next draft video on the Facebook page
-"""
+"""HALHAFARM - Daily Facebook Publisher (Morning 9h + Evening 18h)"""
 import os, json, urllib.request, urllib.parse, sys
 from datetime import datetime
 
-USER_TOKEN = os.environ["FB_USER_TOKEN"]
+PAGE_TOKEN = os.environ["FB_USER_TOKEN"]   # permanent page token
 PAGE_ID    = os.environ["FB_PAGE_ID"]
-STATE_FILE = "state.json"
-IDS_FILE   = "video_ids.json"
+SESSION    = os.environ.get("SESSION", "morning")
 
-VIDEOS = [
+# Morning videos (9:00) — Set 1
+VIDEOS_MORNING = [
     "video_01_breeds.mp4",
     "video_02_broiler.mp4",
     "video_03_fertilized.mp4",
@@ -23,18 +20,27 @@ VIDEOS = [
     "video_10_offers.mp4",
 ]
 
+# Evening videos (18:00) — Set 2
+VIDEOS_EVENING = [
+    "video_B01_quality.mp4",
+    "video_B02_recipes.mp4",
+    "video_B03_roosters.mp4",
+    "video_B04_egg_benefits.mp4",
+    "video_B05_olive_benefits.mp4",
+    "video_B06_delivery.mp4",
+    "video_B07_seasons.mp4",
+    "video_B08_compare.mp4",
+    "video_B09_farm_life.mp4",
+    "video_B10_order_now.mp4",
+]
+
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-def get_page_token():
-    url = f"https://graph.facebook.com/{PAGE_ID}?fields=access_token&access_token={USER_TOKEN}"
-    with urllib.request.urlopen(url, timeout=15) as r:
-        return json.loads(r.read())["access_token"]
-
-def publish_video(video_id, page_token):
+def publish_video(video_id):
     data = urllib.parse.urlencode({
         "published": "true",
-        "access_token": page_token
+        "access_token": PAGE_TOKEN
     }).encode()
     req = urllib.request.Request(
         f"https://graph.facebook.com/{video_id}",
@@ -43,48 +49,60 @@ def publish_video(video_id, page_token):
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read())
 
+# Select config based on session
+if SESSION == "evening":
+    videos_list = VIDEOS_EVENING
+    state_file  = "state_evening.json"
+    ids_file    = "video_ids_v2.json"
+    label       = "EVENING 18:00"
+else:
+    videos_list = VIDEOS_MORNING
+    state_file  = "state.json"
+    ids_file    = "video_ids.json"
+    label       = "MORNING 9:00"
+
+log(f"Session: {label}")
+
 # Load state
 state = {"next_index": 0, "total_posted": 0}
-if os.path.exists(STATE_FILE):
-    with open(STATE_FILE) as f:
+if os.path.exists(state_file):
+    with open(state_file) as f:
         state = json.load(f)
 
 # Load video IDs
-with open(IDS_FILE) as f:
+if not os.path.exists(ids_file):
+    log(f"ERROR: {ids_file} not found!")
+    sys.exit(1)
+with open(ids_file) as f:
     video_ids = json.load(f)
 
-idx = state["next_index"] % len(VIDEOS)
-filename = VIDEOS[idx]
-
-log(f"Video {idx+1}/10: {filename}")
+idx      = state["next_index"] % len(videos_list)
+filename = videos_list[idx]
+log(f"Video {idx+1}/{len(videos_list)}: {filename}")
 
 if filename not in video_ids:
-    log(f"ERROR: no video_id found for {filename}")
+    log(f"ERROR: {filename} not in {ids_file}")
     sys.exit(1)
 
 video_id = video_ids[filename]
 log(f"Video ID: {video_id}")
-
-log("Getting page token...")
-page_token = get_page_token()
-log("Token OK")
-
 log("Publishing...")
-result = publish_video(video_id, page_token)
+result = publish_video(video_id)
 log(f"Result: {result}")
 
 if result.get("success") or result.get("id"):
-    state["next_index"] = (idx + 1) % len(VIDEOS)
+    state["next_index"]   = (idx + 1) % len(videos_list)
     state["total_posted"] = state.get("total_posted", 0) + 1
     state["last_post"] = {
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "video": filename,
-        "video_id": video_id
+        "video_id": video_id,
+        "session": label
     }
-    with open(STATE_FILE, "w") as f:
+    with open(state_file, "w") as f:
         json.dump(state, f, indent=2)
-    log(f"SUCCESS! Total posted: {state['total_posted']}")
-    log(f"Next: {VIDEOS[state['next_index']]}")
+    log(f"SUCCESS! Total {label}: {state['total_posted']}")
+    log(f"Next: {videos_list[state['next_index']]}")
 else:
     log(f"FAILED: {result}")
     sys.exit(1)
