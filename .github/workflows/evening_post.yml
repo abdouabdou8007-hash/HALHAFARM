@@ -1,0 +1,30 @@
+name: HALHAFARM Evening Post (18h00)
+
+on:
+  schedule:
+    - cron: '0 17 * * *'   # 18:00 Morocco (UTC+1)
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Post evening video
+        env:
+          FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
+          FB_PAGE_ID: "114437705015500"
+          SESSION: "evening"
+        run: python post.py
+      - name: Save state
+        run: |
+          git config user.name "HALHAFARM Bot"
+          git config user.email "bot@halhafarm.com"
+          git add state_evening.json
+          git diff --staged --quiet || git commit -m "evening: next video"
+          git push
