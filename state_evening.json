@@ -1,4 +1,10 @@
 {
-  "next_index": 0,
-  "total_posted": 0
+  "next_index": 1,
+  "total_posted": 1,
+  "last_post": {
+    "date": "2026-05-15 17:38",
+    "video": "video_B01_quality.mp4",
+    "video_id": "1128577550333408",
+    "session": "EVENING 18:00"
+  }
 }
