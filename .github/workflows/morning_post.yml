@@ -1,0 +1,30 @@
+name: HALHAFARM Morning Post (9h00)
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 9:00 Morocco (UTC+1)
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Post morning video
+        env:
+          FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
+          FB_PAGE_ID: "114437705015500"
+          SESSION: "morning"
+        run: python post.py
+      - name: Save state
+        run: |
+          git config user.name "HALHAFARM Bot"
+          git config user.email "bot@halhafarm.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "morning: next video"
+          git push
